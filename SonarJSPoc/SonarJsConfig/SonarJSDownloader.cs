@@ -49,7 +49,7 @@ namespace SonarJsConfig
         //  package\package.json
 
         // Sub-folder into which the tar file should be unzipped
-        private const string TarUnzipSubFolder = "tar_gz";
+        public const string EslintBridgeFolderName = "eslint-bridge";
 
         // List of patterns to match single files in the uncompressed output
         private readonly string[] SingleFilePatterns = new string[]
@@ -65,7 +65,7 @@ namespace SonarJsConfig
             @"org\sonar\l10n\javascript\rules\javascript\*.json",
             @"org\sonar\l10n\typescript\rules\tslint\*.json",
             @"org\sonar\l10n\typescript\rules\tslint-sonarts\*.json",
-            TarUnzipSubFolder + @"\package\*"
+            EslintBridgeFolderName + @"\package\*"
 
         };
 
@@ -90,10 +90,10 @@ namespace SonarJsConfig
 
             // Note: not required just to fetch the rules config.
             // However, it will unpack the eslint bridge
-            //// Uncompress and extract the windows tar archive to get the eslint-bridge folder
-            //var tarFilePath = Common.FindSingleFile(perVersionPluginFolder, EsLintBridgeFilePattern, logger);
-            //var tarSubFolder = Path.Combine(perVersionPluginFolder, TarUnzipSubFolder);
-            //Common.UncompressAndUnzipTgz(tarFilePath, tarSubFolder, logger);
+            // Uncompress and extract the windows tar archive to get the eslint-bridge folder
+            var tarFilePath = Common.FindSingleFile(perVersionPluginFolder, EsLintBridgeFilePattern, logger);
+            var tarSubFolder = Path.Combine(perVersionPluginFolder, EslintBridgeFolderName);
+            Common.UncompressAndUnzipTgz(tarFilePath, tarSubFolder, logger);
 
             //// Locate the required files from the uncompressed jar and tar
             //var fileList = Common.FindSingleFiles(perVersionPluginFolder, SingleFilePatterns, logger);

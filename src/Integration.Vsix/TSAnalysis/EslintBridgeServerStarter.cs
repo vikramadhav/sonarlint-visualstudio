@@ -53,6 +53,10 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
             process.OutputDataReceived += OnOutputDataReceived;
 
             process.Start();
+            logger.WriteLine($"ESLINT-BRIDGE: Server process id: {process.Id}");
+            logger.WriteLine($"ESLINT-BRIDGE: Server process HasExited: {process.HasExited}");
+
+
             process.BeginErrorReadLine();
             process.BeginOutputReadLine();
         }
@@ -88,6 +92,7 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
         {
             process?.Kill();
             process?.Dispose();
+            logger.WriteLine("ESLINT0BRIDGE: server disposed");
         }
     }
 }

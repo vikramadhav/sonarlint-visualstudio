@@ -113,12 +113,17 @@
     <PackageReference Include="System.Reflection.Metadata" Version="1.2.0" />
     <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="16.3.2099" />
 
+
+    <PackageReference Include="SharpCompress" Version="0.23.0" />
+    <PackageReference Include="SharpZipLib" Version="1.1.0" />
+
     <!-- Workaround for NuGet bug https://github.com/NuGet/Home/issues/2365 
          EmbedInteropAssemblies isn't set for PackagReferences. -->
     <PackageReference Include="Microsoft.VisualStudio.SDK.EmbedInteropTypes" Version="15.0.27" />
   </ItemGroup>  
   
   <ItemGroup Label="Project references">
+    <ProjectReference Include="..\..\SonarJSPoc\SonarJsConfig\SonarJsConfig.csproj" />
     <ProjectReference Include="..\..\sonarqube-webclient\SonarQube.Client\SonarQube.Client.csproj">
       <Project>{BA771DF7-9F99-4DE3-B85B-3E5DB742A55C}</Project>
       <Name>SonarQube.Client.2015</Name>
@@ -418,6 +423,8 @@
   <Target Name="IncludeNuGetPackageReferences" AfterTargets="GetVsixSourceItems">
     <ItemGroup>
       <VSIXSourceItem Include="@(ReferenceCopyLocalPaths)" Condition="'%(ReferenceCopyLocalPaths.NuGetPackageId)' == 'System.IO.Abstractions'" />
+      <VSIXSourceItem Include="@(ReferenceCopyLocalPaths)" Condition="'%(ReferenceCopyLocalPaths.NuGetPackageId)' == 'SharpCompress'" />
+      <VSIXSourceItem Include="@(ReferenceCopyLocalPaths)" Condition="'%(ReferenceCopyLocalPaths.NuGetPackageId)' == 'SharpZipLib'" />
     </ItemGroup>
   </Target>
 

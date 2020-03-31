@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
 using EnvDTE;
+using Microsoft.VisualStudio;
 using Newtonsoft.Json;
 using Sonarlint;
 using SonarLint.VisualStudio.Integration.Vsix.Analysis;
@@ -27,17 +29,18 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
 
     [Export(typeof(IAnalyzer))]
     [PartCreationPolicy(CreationPolicy.Shared)]
-    public class TypescriptAnalyzer : IAnalyzer
+    public partial class TypescriptAnalyzer : IAnalyzer
     {
         private readonly ILogger logger;
         private int port;
         private readonly string serverStartupScriptLocation;
 
-        private const string ScriptLocation = "c:\\Projects\\SonarJS\\eslint-bridge\\bin\\server";
+        //        private const string ScriptLocation = "c:\\Projects\\SonarJS\\eslint-bridge\\bin\\server";
+        private EslintBridgeServerStarter serverStarter;
 
         [ImportingConstructor]
         public TypescriptAnalyzer(ILogger logger) 
-            :this(logger, 0, ScriptLocation)
+            :this(logger, 0, null)
         {
         }
 
@@ -68,8 +71,10 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
                 throw new ArgumentOutOfRangeException($"Unsupported language");
             }
 
-            using var serverStarter = new EslintBridgeServerStarter(logger, serverStartupScriptLocation, port);
-            this.port = serverStarter.Start().Result;
+            if (!EnsureServerStarted())
+            {
+                return;
+            }
 
             var serverEndpoint = detectedLanguages.Contains(AnalysisLanguage.Typescript) ?
                 "analyze-ts" : "analyze-js";
@@ -149,6 +154,33 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
             consumer.Accept(path, analysisIssues);
         }
 
+        private bool EnsureServerStarted()
+        {
+            var jarPath = EnsureSonarJSDownloaded();
+
+            var scriptFilePath = serverStartupScriptLocation ??
+                System.IO.Path.Combine(jarPath, SonarJsConfig.SonarJSDownloader.EslintBridgeFolderName, "package", "bin", "server");
+
+            if (!File.Exists(scriptFilePath))
+            {
+                logger.WriteLine($"ERROR: eslint-bridge startup script file does not exist: {scriptFilePath}");
+                return false;
+            }
+
+            try
+            {
+                serverStarter = new EslintBridgeServerStarter(logger, scriptFilePath, port);
+                this.port = serverStarter.Start().Result;
+            }
+            catch(Exception ex) when (!ErrorHandler.IsCriticalException(ex))
+            {
+                serverStarter.Dispose();
+                logger.WriteLine($"ERROR: Failed to start the server: {ex}");
+            }
+
+            return true;
+        }
+
         private void LogParsingError(string path, EslintBridgeParsingError parsingError)
         {
             //https://github.com/SonarSource/SonarJS/blob/1916267988093cb5eb1d0b3d74bb5db5c0dbedec/sonar-javascript-plugin/src/main/java/org/sonar/plugins/javascript/eslint/AbstractEslintSensor.java#L134
@@ -166,6 +198,37 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
                 logger.WriteLine($"Failed to parse file [{path}] at line {parsingError.Line}: {parsingError.Message}");
             }
         }
+
+        private string EnsureSonarJSDownloaded()
+        {
+
+            var downloader = new SonarJsConfig.SonarJSDownloader();
+            var url = "https://binaries.sonarsource.com/Distribution/sonar-javascript-plugin/sonar-javascript-plugin-6.2.0.12043.jar";
+            var outputDir = downloader.Download(url, new LoggerAdapter(logger));
+
+            return outputDir;
+        }
+
+        private class LoggerAdapter : SonarJsConfig.ILogger
+        {
+            private readonly ILogger vsLogger;
+
+            public LoggerAdapter(ILogger vsLogger)
+            {
+                this.vsLogger = vsLogger;
+            }
+
+            void SonarJsConfig.ILogger.LogError(string message)
+            {
+                vsLogger.WriteLine("ERROR: " + message);
+            }
+
+            void SonarJsConfig.ILogger.LogMessage(string message)
+            {
+                vsLogger.WriteLine(message);
+            }
+        }
+
     }
 
     public class EslintBridgeResponse
