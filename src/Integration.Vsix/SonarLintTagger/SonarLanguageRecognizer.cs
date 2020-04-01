@@ -31,7 +31,8 @@ namespace SonarLint.VisualStudio.Integration.Vsix
     [Export(typeof(ISonarLanguageRecognizer))]
     internal class SonarLanguageRecognizer : ISonarLanguageRecognizer
     {
-        private static readonly ISet<string> JavascriptSupportedExtensions = new HashSet<string> { "js", "jsx", "vue", "ts" };
+        private static readonly ISet<string> JavascriptSupportedExtensions = new HashSet<string> { "js", "jsx", "vue" };
+        private static readonly ISet<string> TypescriptSupportedExtensions = new HashSet<string> { "ts" };
 
         private readonly IContentTypeRegistryService contentTypeRegistryService;
         private readonly IFileExtensionRegistryService fileExtensionRegistryService;
@@ -67,6 +68,11 @@ namespace SonarLint.VisualStudio.Integration.Vsix
                 detectedLanguages.Add(AnalysisLanguage.Javascript);
             }
 
+            if (IsTypeScriptDocument(fileExtension, contentTypes))
+            {
+                detectedLanguages.Add(AnalysisLanguage.Typescript);
+            }
+
             if (IsCFamilyDocument(contentTypes))
             {
                 detectedLanguages.Add(AnalysisLanguage.CFamily);
@@ -92,11 +98,14 @@ namespace SonarLint.VisualStudio.Integration.Vsix
             return contentTypes;
         }
 
+        private static bool IsTypeScriptDocument(string fileExtension, IEnumerable<IContentType> contentTypes) =>
+            TypescriptSupportedExtensions.Contains(fileExtension) &&
+            contentTypes.Any(type => type.IsOfType("TypeScript"));
+
+
         private static bool IsJavascriptDocument(string fileExtension, IEnumerable<IContentType> contentTypes) =>
             JavascriptSupportedExtensions.Contains(fileExtension) ||
-            contentTypes.Any(type => type.IsOfType("JavaScript") ||
-                                     type.IsOfType("Vue") ||
-                                     type.IsOfType("TypeScript"));
+            contentTypes.Any(type => (type.IsOfType("JavaScript") || type.IsOfType("Vue")) && (!type.IsOfType("TypeScript")));
 
         private static bool IsCFamilyDocument(IEnumerable<IContentType> contentTypes) =>
             contentTypes.Any(type => type.IsOfType("C/C++"));
