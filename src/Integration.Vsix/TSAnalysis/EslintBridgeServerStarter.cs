@@ -32,6 +32,9 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
             return startTask.Task;
         }
 
+        public bool IsRunning()
+            => !this.process?.HasExited ?? false;
+
         private void StartServer()
         {
             var nodePath = "node.exe ";
@@ -90,9 +93,12 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
 
         public void Dispose()
         {
-            process?.Kill();
+            if (!process.HasExited)
+            {
+                process?.Kill();
+            }
             process?.Dispose();
-            logger.WriteLine("ESLINT0BRIDGE: server disposed");
+            logger.WriteLine("ESLINT-BRIDGE: server disposed");
         }
     }
 }

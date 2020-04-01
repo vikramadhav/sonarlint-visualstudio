@@ -28,6 +28,10 @@ namespace SonarJsConfig
                 .Union(Load(@"org\sonar\l10n\typescript\rules\tslint-sonarts\rules.json"))
                 .ToArray();
 
+            rules = Load(@"org\sonar\l10n\typescript\rules\tslint-sonarts\rules.json")
+                .ToArray();
+
+
             return rules;
         }
 
@@ -37,6 +41,8 @@ namespace SonarJsConfig
             // Should we execute these to?
             // e.g. angular.json, core.json, ember.json ...
             var rules = Load(@"org\sonar\l10n\javascript\rules\eslint\sonarjs.json")
+                .Union(Load(@"org\sonar\l10n\javascript\rules\eslint\core.json"))
+                .Union(Load(@"org\sonar\l10n\javascript\rules\eslint\promise.json"))
                 .ToArray();
 
             return rules;

@@ -8,6 +8,7 @@ using System.Text;
 using EnvDTE;
 using Microsoft.VisualStudio;
 using Newtonsoft.Json;
+using SonarJsConfig;
 using Sonarlint;
 using SonarLint.VisualStudio.Integration.Vsix.Analysis;
 
@@ -36,6 +37,8 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
         private readonly string serverStartupScriptLocation;
 
         //        private const string ScriptLocation = "c:\\Projects\\SonarJS\\eslint-bridge\\bin\\server";
+        private EslintRulesProvider rulesProvider;
+
         private EslintBridgeServerStarter serverStarter;
 
         [ImportingConstructor]
@@ -49,7 +52,7 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
             this.port = port;
             this.serverStartupScriptLocation = serverStartupScriptLocation;
-        }
+    }
 
         public bool IsAnalysisSupported(IEnumerable<AnalysisLanguage> languages)
         {
@@ -76,36 +79,13 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
                 return;
             }
 
-            var serverEndpoint = detectedLanguages.Contains(AnalysisLanguage.Typescript) ?
-                "analyze-ts" : "analyze-js";
+            var language = detectedLanguages.Contains(AnalysisLanguage.Typescript)
+                ? AnalysisLanguage.Typescript : AnalysisLanguage.Javascript;
 
-            var fileContent = "";
+            var fileContent = GetFileContent(projectItem);
 
-            if (projectItem != null)
-            {
-                var textDocument = (projectItem.Document.Object() as TextDocument);
-                var editPoint = textDocument.StartPoint.CreateEditPoint();
-                fileContent = editPoint.GetText(textDocument.EndPoint);
-            }
 
-            using var httpClient = new System.Net.Http.HttpClient();
-            var request = new
-            {
-                filePath = path,
-                fileContent = fileContent,
-                rules = new[]
-                {
-                    // NOTE: the rule keys we pass to the eslint-bridge are not the Sonar "Sxxxx" keys.
-                    // Instead, there are more user-friendly keys.
-                    // We will need to translate between the "Sxxx" and the "friendly" keys.
-                    // The "friendly" keys are at https://github.com/SonarSource/eslint-plugin-sonarjs/blob/master/src/index.ts
-                    new { key = "max-switch-cases", configurations = new string[0] },
-                    new { key = "no-duplicate-string", configurations = new string[0] },
-                    new { key = "todo-tag", configurations = new string[0] }
-                }
-            };
- 
-            var serializedRequest = JsonConvert.SerializeObject(request);
+            var serializedRequest = this.CreateRequest(path, fileContent, language);
 
             // If the server can't find typescript then response will contain "MISSING_TYPESCRIPT".
             // To fix this, either:
@@ -114,8 +94,12 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
             //      NB the variable must be set before launching the server.
             HttpResponseMessage response = null;
 
+            var serverEndpoint = language == AnalysisLanguage.Typescript ?
+                "analyze-ts" : "analyze-js";
+
             try
             {
+                using var httpClient = new System.Net.Http.HttpClient();
                 response = httpClient.PostAsync($"http://localhost:{port}/{serverEndpoint}",
                         new StringContent(serializedRequest, Encoding.UTF8, "application/json"))
                     .Result;
@@ -156,19 +140,27 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
 
         private bool EnsureServerStarted()
         {
-            var jarPath = EnsureSonarJSDownloaded();
-
-            var scriptFilePath = serverStartupScriptLocation ??
-                System.IO.Path.Combine(jarPath, SonarJsConfig.SonarJSDownloader.EslintBridgeFolderName, "package", "bin", "server");
-
-            if (!File.Exists(scriptFilePath))
+            // Handle the server having stopped unexpectedly
+            if (serverStarter != null)
             {
-                logger.WriteLine($"ERROR: eslint-bridge startup script file does not exist: {scriptFilePath}");
-                return false;
+                if (serverStarter.IsRunning())
+                {
+                    return true;
+                }
+
+                logger.WriteLine("Server process has exited. Cleaning up and restarting...");
+                serverStarter.Dispose();
+                serverStarter = null;
             }
 
             try
             {
+                var scriptFilePath = EnsurePluginDownloaded();
+                if (scriptFilePath == null)
+                {
+                    return false;
+                }
+
                 serverStarter = new EslintBridgeServerStarter(logger, scriptFilePath, port);
                 this.port = serverStarter.Start().Result;
             }
@@ -179,6 +171,100 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
             }
 
             return true;
+        }
+
+        private string EnsurePluginDownloaded()
+        {
+            var jarRootDirectory = EnsureSonarJSDownloaded();
+            rulesProvider = new EslintRulesProvider(jarRootDirectory);
+
+            var scriptFilePath = serverStartupScriptLocation ??
+                System.IO.Path.Combine(jarRootDirectory, SonarJsConfig.SonarJSDownloader.EslintBridgeFolderName, "package", "bin", "server");
+
+            if (!File.Exists(scriptFilePath))
+            {
+                logger.WriteLine($"ERROR: eslint-bridge startup script file does not exist: {scriptFilePath}");
+                return null;
+            }
+
+            return scriptFilePath;
+        }
+
+        private string GetFileContent(ProjectItem projectItem)
+        {
+             var fileContent = "";
+            if (projectItem != null)
+            {
+                var textDocument = (projectItem.Document.Object() as TextDocument);
+                var editPoint = textDocument.StartPoint.CreateEditPoint();
+                fileContent = editPoint.GetText(textDocument.EndPoint);
+            }
+            return fileContent;
+        }
+
+
+        private readonly IList<string> parametrizedRules = new List<string>
+{
+"file-header",
+"no-floating-promises",
+"no-unnecessary-qualifier",
+"no-unnecessary-type-assertion",
+"prefer-readonly",
+"promise-function-async",
+"restrict-plus-operands",
+"strict-boolean-expressions",
+"variable-name",
+"no-for-in-array",
+"class-name",
+"arrow-function-convention",
+"class-name",
+"comment-regex",
+"cyclomatic-complexity",
+"expression-complexity",
+"function-name",
+"max-union-size",
+"nested-control-flow",
+"no-hardcoded-credentials",
+"no-implicit-dependencies",
+"sonar-max-lines-per-function",
+};
+
+        private string CreateRequest(string filePath, string fileContent, AnalysisLanguage language)
+        {
+            var ruleKeys = language == AnalysisLanguage.Javascript
+                ? rulesProvider.GetJavaScriptRules()
+                : rulesProvider.GetTypeScriptRules();
+
+            // Strip out parameterised rules
+            ruleKeys = ruleKeys.Where(x => !parametrizedRules.Contains(x.Key))
+                .ToArray();
+
+
+            // NOTE: the rule keys we pass to the eslint-bridge are not the Sonar "Sxxxx" keys.
+            // Instead, there are more user-friendly keys.
+            // We will need to translate between the "Sxxx" and the "friendly" keys.
+            // The "friendly" keys are at https://github.com/SonarSource/eslint-plugin-sonarjs/blob/master/src/index.ts
+            var eslintRequest = new EslintBridgeRequest
+            {
+                FilePath = filePath,
+                FileContent = fileContent,
+                Rules = ruleKeys.Select(x => new EsLintRuleConfig { Key = StripKeyPrefix(x.Key), Configurations = Array.Empty<string>() })
+                    .ToArray()
+            };
+
+            var serializedRequest = JsonConvert.SerializeObject(eslintRequest, Formatting.Indented);
+            return serializedRequest;
+        }
+
+        private static string StripKeyPrefix(string eslintKey)
+        {
+            var splitter = eslintKey.IndexOf('/');
+
+            if (splitter > -1)
+            {
+                return eslintKey.Substring(splitter + 1);
+            }
+            return eslintKey;
         }
 
         private void LogParsingError(string path, EslintBridgeParsingError parsingError)
@@ -230,6 +316,26 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
         }
 
     }
+
+    public class EslintBridgeRequest
+    {
+        [JsonProperty("filePath")]
+        public string FilePath { get; set; }
+        [JsonProperty("fileContent")]
+        public string FileContent { get; set; }
+        [JsonProperty("rules")]
+        public EsLintRuleConfig[] Rules { get; set; }
+
+    }
+
+    public class EsLintRuleConfig
+    {
+        [JsonProperty("key")]
+        public string Key { get; set; }
+        [JsonProperty("configurations")]
+        public string[] Configurations { get; set; }
+    }
+
 
     public class EslintBridgeResponse
     {
