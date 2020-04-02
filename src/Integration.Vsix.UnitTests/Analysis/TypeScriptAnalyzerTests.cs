@@ -2,7 +2,6 @@
 using System.IO;
 using System.Linq;
 using EnvDTE;
-using Microsoft.VisualStudio.PlatformUI;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Sonarlint;
@@ -16,7 +15,8 @@ namespace SonarLint.VisualStudio.Integration.UnitTests.Analysis
     {
         private TestLogger logger;
 
-        private const string ScriptLocation = "C:\\Users\\Rita\\Desktop\\eslint-bridge\\bin\\server";
+        //private const string ScriptLocation = "C:\\Users\\Rita\\Desktop\\eslint-bridge\\bin\\server";
+        private const string ScriptLocation = @"C:\Users\jdcp\AppData\Local\SLVS_Internal_Build\SonarJS\sonar-javascript-plugin-6.2.0.12043\eslint-bridge\package\bin\server";
 
         public TestContext TestContext { get; set; }
 

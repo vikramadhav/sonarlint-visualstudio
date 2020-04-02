@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -50,6 +51,8 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
                 CreateNoWindow = true,
                 Arguments = command
             };
+
+            psi.EnvironmentVariables.Add("NODE_PATH", @"C:\Users\jdcp\AppData\Roaming\npm\node_modules");
 
             process = new Process { StartInfo = psi };
             process.ErrorDataReceived += OnErrorDataReceived;

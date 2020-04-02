@@ -2,58 +2,26 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using Newtonsoft.Json;
 
 namespace SonarJsConfig
 {
     public class EslintRulesProvider
-    {
-        public const string PluginVersion = "6.2.0.12043";
+    {   
+        public static IEnumerable<string> GetJavaScriptRuleKeys()
+            => GetRuleKeysFromResources("SonarJsConfig.Rules.js-rules.txt")
+                .Except(GetRuleKeysFromResources("SonarJsConfig.Rules.ExcludedRules.txt"));
 
-        private readonly string jarRootDirectory;
+        public static IEnumerable<string> GetTypeScriptRuleKeys()
+            => GetRuleKeysFromResources("SonarJsConfig.Rules.ts-rules.txt")
+                .Except(GetRuleKeysFromResources("SonarJsConfig.Rules.ExcludedRules.txt"));
 
-        public EslintRulesProvider(string jarRootDirectory)
+        private static IEnumerable<string> GetRuleKeysFromResources(string resourceName)
         {
-            this.jarRootDirectory = jarRootDirectory ?? throw new ArgumentNullException(nameof(jarRootDirectory));
-            if (!Directory.Exists(jarRootDirectory))
+            using (var reader = new StreamReader(typeof(EslintRulesProvider).Assembly.GetManifestResourceStream(resourceName)))
             {
-                throw new DirectoryNotFoundException(jarRootDirectory);
+                var text = reader.ReadToEnd();
+                return text.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
             }
         }
-
-        public IEnumerable<EslintRuleInfo> GetTypeScriptRules()
-        {
-            var rules = Load(@"org\sonar\l10n\typescript\rules\tslint\rules.json")
-                .Union(Load(@"org\sonar\l10n\typescript\rules\tslint-sonarts\rules.json"))
-                .ToArray();
-
-            rules = Load(@"org\sonar\l10n\typescript\rules\tslint-sonarts\rules.json")
-                .ToArray();
-
-
-            return rules;
-        }
-
-        public IEnumerable<EslintRuleInfo> GetJavaScriptRules()
-        {
-            // Note: there are json files for multiple other eslint plugins.
-            // Should we execute these to?
-            // e.g. angular.json, core.json, ember.json ...
-            var rules = Load(@"org\sonar\l10n\javascript\rules\eslint\sonarjs.json")
-                .Union(Load(@"org\sonar\l10n\javascript\rules\eslint\core.json"))
-                .Union(Load(@"org\sonar\l10n\javascript\rules\eslint\promise.json"))
-                .ToArray();
-
-            return rules;
-        }
-
-        private IEnumerable<EslintRuleInfo> Load(string relativeFilePath)
-        {
-            var fullPath = Path.Combine(jarRootDirectory, relativeFilePath);
-            var data = JsonConvert.DeserializeObject<EslintRuleInfo[]>(File.ReadAllText(fullPath, Encoding.UTF8));
-            return data;
-        }
-
     }
 }

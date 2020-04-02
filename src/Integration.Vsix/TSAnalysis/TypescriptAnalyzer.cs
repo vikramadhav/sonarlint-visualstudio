@@ -37,7 +37,6 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
         private readonly string serverStartupScriptLocation;
 
         //        private const string ScriptLocation = "c:\\Projects\\SonarJS\\eslint-bridge\\bin\\server";
-        private EslintRulesProvider rulesProvider;
 
         private EslintBridgeServerStarter serverStarter;
 
@@ -176,7 +175,6 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
         private string EnsurePluginDownloaded()
         {
             var jarRootDirectory = EnsureSonarJSDownloaded();
-            rulesProvider = new EslintRulesProvider(jarRootDirectory);
 
             var scriptFilePath = serverStartupScriptLocation ??
                 System.IO.Path.Combine(jarRootDirectory, SonarJsConfig.SonarJSDownloader.EslintBridgeFolderName, "package", "bin", "server");
@@ -202,43 +200,11 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
             return fileContent;
         }
 
-
-        private readonly IList<string> parametrizedRules = new List<string>
-{
-"file-header",
-"no-floating-promises",
-"no-unnecessary-qualifier",
-"no-unnecessary-type-assertion",
-"prefer-readonly",
-"promise-function-async",
-"restrict-plus-operands",
-"strict-boolean-expressions",
-"variable-name",
-"no-for-in-array",
-"class-name",
-"arrow-function-convention",
-"class-name",
-"comment-regex",
-"cyclomatic-complexity",
-"expression-complexity",
-"function-name",
-"max-union-size",
-"nested-control-flow",
-"no-hardcoded-credentials",
-"no-implicit-dependencies",
-"sonar-max-lines-per-function",
-};
-
         private string CreateRequest(string filePath, string fileContent, AnalysisLanguage language)
         {
             var ruleKeys = language == AnalysisLanguage.Javascript
-                ? rulesProvider.GetJavaScriptRules()
-                : rulesProvider.GetTypeScriptRules();
-
-            // Strip out parameterised rules
-            ruleKeys = ruleKeys.Where(x => !parametrizedRules.Contains(x.Key))
-                .ToArray();
-
+                ? EslintRulesProvider.GetJavaScriptRuleKeys()
+                : EslintRulesProvider.GetTypeScriptRuleKeys();
 
             // NOTE: the rule keys we pass to the eslint-bridge are not the Sonar "Sxxxx" keys.
             // Instead, there are more user-friendly keys.
@@ -248,23 +214,12 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
             {
                 FilePath = filePath,
                 FileContent = fileContent,
-                Rules = ruleKeys.Select(x => new EsLintRuleConfig { Key = StripKeyPrefix(x.Key), Configurations = Array.Empty<string>() })
+                Rules = ruleKeys.Select(x => new EsLintRuleConfig { Key = x, Configurations = Array.Empty<string>() })
                     .ToArray()
             };
 
             var serializedRequest = JsonConvert.SerializeObject(eslintRequest, Formatting.Indented);
             return serializedRequest;
-        }
-
-        private static string StripKeyPrefix(string eslintKey)
-        {
-            var splitter = eslintKey.IndexOf('/');
-
-            if (splitter > -1)
-            {
-                return eslintKey.Substring(splitter + 1);
-            }
-            return eslintKey;
         }
 
         private void LogParsingError(string path, EslintBridgeParsingError parsingError)

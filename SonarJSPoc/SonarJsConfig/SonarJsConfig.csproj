@@ -5,6 +5,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Rules\ExcludedRules.txt" />
+    <None Remove="Rules\js-rules.txt" />
+    <None Remove="Rules\ts-rules.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Rules\ExcludedRules.txt" />
+    <EmbeddedResource Include="Rules\js-rules.txt" />
+    <EmbeddedResource Include="Rules\ts-rules.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="6.0.8" />
     <PackageReference Include="SharpCompress" Version="0.23.0" />
     <PackageReference Include="SharpZipLib" Version="1.1.0" />

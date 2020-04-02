@@ -11,46 +11,31 @@ namespace SonarJSPocTests
         public TestContext TestContext { get; set; }
 
         [TestMethod]
-        public void GetTypescriptRules()
+        public void GetJavascriptRules()
         {
-            var jarDir = EnsurePluginDownloaded();
-            var loader = new EslintRulesProvider(jarDir);
-
-            var actual = loader.GetTypeScriptRules();
+            var actual = EslintRulesProvider.GetJavaScriptRuleKeys();
 
             actual.Should().NotBeEmpty();
-            
+
             DumpKeys(actual);
         }
 
         [TestMethod]
-        public void GetJavascriptRules()
+        public void GetTypeScriptRules()
         {
-            var jarDir = EnsurePluginDownloaded();
-            var loader = new EslintRulesProvider(jarDir);
-
-            var actual = loader.GetJavaScriptRules();
+            var actual = EslintRulesProvider.GetTypeScriptRuleKeys();
 
             actual.Should().NotBeEmpty();
 
             DumpKeys(actual);
         }
 
-        private void DumpKeys(IEnumerable<EslintRuleInfo> eslintRuleInfos)
+        private void DumpKeys(IEnumerable<string> ruleKeys)
         {
-            foreach(var item in eslintRuleInfos)
+            foreach (var item in ruleKeys)
             {
-                TestContext.WriteLine(item.Key);
+                TestContext.WriteLine(item);
             }
-        }
-
-
-        private string EnsurePluginDownloaded()
-        {
-            var downloader = new SonarJsConfig.SonarJSDownloader();
-            var url = "https://binaries.sonarsource.com/Distribution/sonar-javascript-plugin/sonar-javascript-plugin-6.2.0.12043.jar";
-            var outputDir = downloader.Download(url, new ConsoleLogger());
-            return outputDir;
         }
     }
 }
