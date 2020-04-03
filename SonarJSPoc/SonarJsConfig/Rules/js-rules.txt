@@ -18,3 +18,4 @@ prefer-immediate-return
 prefer-object-literal
 prefer-single-boolean-return
 prefer-while
+todo-tag
