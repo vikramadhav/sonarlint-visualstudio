@@ -149,7 +149,6 @@ prefer-const
 no-one-iteration-loop
 no-globals-shadowing
 no-undefined-argument
-no-unnecessary-type-arguments
 no-unused-collection
 unused-import
 no-unused-expressions
