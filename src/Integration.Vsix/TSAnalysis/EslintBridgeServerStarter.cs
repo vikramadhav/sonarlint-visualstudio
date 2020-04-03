@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Collections.Specialized;
 using System.Diagnostics;
+using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -10,7 +10,7 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
     {
         private readonly ILogger logger;
         private readonly string serverStartupScriptLocation;
-        private readonly int port;
+        private int port;
 
         private TaskCompletionSource<int> startTask;
         private Process process;
@@ -52,7 +52,7 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
                 Arguments = command
             };
 
-            psi.EnvironmentVariables.Add("NODE_PATH", @"C:\Users\jdcp\AppData\Roaming\npm\node_modules");
+            psi.EnvironmentVariables.Add("NODE_PATH", @"%APPDATA%\npm\node_modules");
 
             process = new Process { StartInfo = psi };
             process.ErrorDataReceived += OnErrorDataReceived;
@@ -84,6 +84,7 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
 
                 if (portNumber != 0)
                 {
+                    port = portNumber;
                     startTask.SetResult(portNumber);
                 }
             }
@@ -100,6 +101,9 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
             {
                 process?.Kill();
             }
+
+            var _ = new HttpClient().PostAsync($"http://localhost:{port}/close", null).Result;
+
             process?.Dispose();
             logger.WriteLine("ESLINT-BRIDGE: server disposed");
         }

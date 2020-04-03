@@ -36,8 +36,6 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
         private int port;
         private readonly string serverStartupScriptLocation;
 
-        //        private const string ScriptLocation = "c:\\Projects\\SonarJS\\eslint-bridge\\bin\\server";
-
         private EslintBridgeServerStarter serverStarter;
 
         [ImportingConstructor]
@@ -81,7 +79,7 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
             var language = detectedLanguages.Contains(AnalysisLanguage.Typescript)
                 ? AnalysisLanguage.Typescript : AnalysisLanguage.Javascript;
 
-            var fileContent = GetFileContent(projectItem);
+            var fileContent = string.Empty; //GetFileContent(projectItem);
 
 
             var serializedRequest = this.CreateRequest(path, fileContent, language);
@@ -98,8 +96,12 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
 
             try
             {
+                var url = $"http://localhost:{port}/{serverEndpoint}";
+
+                logger.WriteLine($"Sending request to {url} for file {path}");
+
                 using var httpClient = new System.Net.Http.HttpClient();
-                response = httpClient.PostAsync($"http://localhost:{port}/{serverEndpoint}",
+                response = httpClient.PostAsync(url,
                         new StringContent(serializedRequest, Encoding.UTF8, "application/json"))
                     .Result;
             }
@@ -116,6 +118,8 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
             }
 
             var responseString = response.Content.ReadAsStringAsync().Result;
+
+            logger.WriteLine("Eslint bridge response: " + responseString);
 
             var eslintBridgeResponse = JsonConvert.DeserializeObject<EslintBridgeResponse>(responseString);
 
