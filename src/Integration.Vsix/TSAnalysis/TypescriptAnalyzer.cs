@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -21,7 +22,7 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
     // * check how parsing errors are handled (?don't want to display them to the user?)
     //      * understand set of possible server error codes: e.g. missing TS, missing node, wrong version of node
     // * experiment with passing "fileContent" instead/as well as "path"
-    
+
 
     // * investigate embedding artefacts in the VSIX: likely size increase if we embed e.g. the minimum required bits, TypeScript, node
     // * discover list of available rule keys: from files in the jar? API calls at build time?
@@ -89,37 +90,17 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
             // 1) add the "typescript" under the "node_modules" folder of the eslint-bridge server, or
             // 2) set the environment variable NODE_PATH to the a "node_modules" folder that contains "typescript".
             //      NB the variable must be set before launching the server.
-            HttpResponseMessage response = null;
-
             var serverEndpoint = language == AnalysisLanguage.Typescript ?
                 "analyze-ts" : "analyze-js";
 
-            try
-            {
-                var url = $"http://localhost:{port}/{serverEndpoint}";
+            var responseString = CallEslintBridge(serverEndpoint, serializedRequest);
 
-                logger.WriteLine($"Sending request to {url} for file {path}");
-
-                using var httpClient = new System.Net.Http.HttpClient();
-                response = httpClient.PostAsync(url,
-                        new StringContent(serializedRequest, Encoding.UTF8, "application/json"))
-                    .Result;
-            }
-            catch(AggregateException ex)
+            if (responseString == null)
             {
-                logger.WriteLine($"Error connecting to the eslint-bridge server. Please ensure the server is running on port {port}");
-                logger.WriteLine(ex.ToString());
-                foreach(var inner in ex.InnerExceptions)
-                {
-                    logger.WriteLine("   -------------------------------");
-                    logger.WriteLine(inner.ToString());
-                }
                 return;
             }
 
-            var responseString = response.Content.ReadAsStringAsync().Result;
-
-            logger.WriteLine("Eslint bridge response: " + responseString);
+            var timer = Stopwatch.StartNew();
 
             var eslintBridgeResponse = JsonConvert.DeserializeObject<EslintBridgeResponse>(responseString);
 
@@ -138,8 +119,49 @@ namespace SonarLint.VisualStudio.Integration.Vsix.TSAnalysis
                     StartLine = x.Line,
                     FilePath = path
                 });
+
             consumer.Accept(path, analysisIssues);
+            timer.Stop();
+
+            logger.WriteLine($"Number of issues returned: {analysisIssues.Count()}");
+            logger.WriteLine($"Time for consumer to process issues: {timer.ElapsedMilliseconds}ms");
         }
+
+        private string CallEslintBridge(string serverEndpoint, string serializedRequest)
+        {
+            HttpResponseMessage response = null;
+            try
+            {
+                using var httpClient = new System.Net.Http.HttpClient();
+
+                var timer = Stopwatch.StartNew();
+
+                response = httpClient.PostAsync($"http://localhost:{port}/{serverEndpoint}",
+                        new StringContent(serializedRequest, Encoding.UTF8, "application/json"))
+                    .Result;
+
+                timer.Stop();
+                logger.WriteLine($"VS->eslint-bridge roundtrip: {timer.ElapsedMilliseconds}ms");
+                
+            }
+            catch (AggregateException ex)
+            {
+                logger.WriteLine($"Error connecting to the eslint-bridge server. Please ensure the server is running on port {port}");
+                logger.WriteLine(ex.ToString());
+                foreach (var inner in ex.InnerExceptions)
+                {
+                    logger.WriteLine("   -------------------------------");
+                    logger.WriteLine(inner.ToString());
+                }
+                return null;
+            }
+
+            var responseString = response.Content.ReadAsStringAsync().Result;
+            logger.WriteLine("Eslint bridge response: " + responseString);
+
+            return responseString;
+        }
+
 
         private bool EnsureServerStarted()
         {
