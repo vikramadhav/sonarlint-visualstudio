@@ -83,8 +83,9 @@ namespace SonarLint.VisualStudio.Integration.UnitTests
             loggerMock = new Mock<ILogger>();
 
             vsMonitorMock = new Mock<IVsMonitorSelection>();
+            var localGuidRef = BoundSolutionUIContext.Guid;
             vsMonitorMock
-                .Setup(x => x.GetCmdUIContextCookie(ref BoundSolutionUIContext.Guid, out boundSolutionUIContextCookie))
+                .Setup(x => x.GetCmdUIContextCookie(ref localGuidRef, out boundSolutionUIContextCookie))
                 .Returns(VSConstants.S_OK);
 
             serviceProvider.RegisterService(typeof(SVsShellMonitorSelection), vsMonitorMock.Object, replaceExisting: true);

@@ -56,7 +56,8 @@ namespace SonarLint.VisualStudio.Integration
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
             vsMonitorSelection = host.GetService<SVsShellMonitorSelection, IVsMonitorSelection>();
-            vsMonitorSelection.GetCmdUIContextCookie(ref BoundSolutionUIContext.Guid, out boundSolutionContextCookie);
+            Guid localGuid = BoundSolutionUIContext.Guid;
+            vsMonitorSelection.GetCmdUIContextCookie(ref localGuid, out boundSolutionContextCookie);
 
             configurationProvider = extensionHost.GetService<IConfigurationProviderService>();
             configurationProvider.AssertLocalServiceIsNotNull();
