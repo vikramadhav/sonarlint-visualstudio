@@ -239,12 +239,14 @@
         <!-- Flows Combo-box styles -->
 
         <Style x:Key="FlowsComboBox" TargetType="{x:Type ComboBox}" BasedOn="{StaticResource {x:Static vsShell:VsResourceKeys.ComboBoxStyleKey}}">
+            <Setter Property="Margin" Value="3"/>
             <Style.Triggers>
                 <DataTrigger Binding="{Binding CurrentIssue.Flows.Count}" Value="1">
                     <Setter Property="Visibility" Value="Collapsed"/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+
     </UserControl.Resources>
     <Grid UseLayoutRounding="True" 
           Background="{DynamicResource {x:Static vsShell:VsBrushes.BrandedUIBackgroundKey}}"
